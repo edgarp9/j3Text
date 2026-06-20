@@ -3,6 +3,9 @@
 A focused Windows plain-text editor with tabs, encoding control, search and
 replace, themes, and conservative file saving.
 
+<img width="443" height="389" alt="j3text" src="https://github.com/user-attachments/assets/16f84324-33ab-4362-ace0-4a5a1b1998eb" />
+
+
 ## Features
 
 - Tab-based editing for multiple plain-text documents.
