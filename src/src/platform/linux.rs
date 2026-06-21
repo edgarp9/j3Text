@@ -32,6 +32,7 @@ use crate::infra::{
     FileDocumentIo, MAX_CONFIRMED_LARGE_FILE_LOAD_BYTES, SaveTargetExpectation, SavedFileSnapshot,
     UserDataStore,
 };
+use crate::notices::about_text;
 
 const APP_ID: &str = "dev.j3tools.j3text";
 const APP_TITLE: &str = "j3Text";
@@ -129,9 +130,13 @@ struct MessageDialogContent<'a> {
 
 const ERROR_DIALOG_TITLE: &str = "j3Text Error";
 const FILE_CHANGED_DIALOG_TITLE: &str = "File Changed";
-const ABOUT_DIALOG_TITLE: &str = "About";
-const ABOUT_DIALOG_MESSAGE: &str = concat!("j3Text ", env!("CARGO_PKG_VERSION"));
+const ABOUT_DIALOG_TITLE: &str = "About j3Text";
+const ABOUT_DIALOG_VERSION_LABEL: &str = concat!("j3Text ", env!("CARGO_PKG_VERSION"));
 const ABOUT_DIALOG_URL: &str = "https://github.com/edgarp9";
+const ABOUT_DIALOG_WIDTH: i32 = 450;
+const ABOUT_DIALOG_HEIGHT: i32 = 400;
+const ABOUT_BODY_SCROLL_WIDTH: i32 = 390;
+const ABOUT_BODY_SCROLL_HEIGHT: i32 = 260;
 const FIND_DIALOG_TITLE: &str = "Find";
 const RESULTS_DIALOG_TITLE: &str = "Results";
 const NO_MATCH_DIALOG_MESSAGE: &str = "No match.";
@@ -4404,7 +4409,7 @@ impl MainWindow {
     fn show_about(&self) {
         if env::var_os(ACTION_SMOKE_ENV).is_some() {
             eprintln!(
-                "Linux action smoke info: {ABOUT_DIALOG_TITLE}: {ABOUT_DIALOG_MESSAGE}\n{ABOUT_DIALOG_URL}"
+                "Linux action smoke info: {ABOUT_DIALOG_TITLE}: {ABOUT_DIALOG_VERSION_LABEL}\n{ABOUT_DIALOG_URL}"
             );
             return;
         }
@@ -5817,20 +5822,84 @@ fn show_message_dialog_for_window(
 
 #[allow(deprecated)]
 fn show_about_dialog(parent: Option<&gtk::ApplicationWindow>) {
-    let dialog = new_message_dialog(
-        parent.map(|parent| parent.upcast_ref::<gtk::Window>()),
-        ABOUT_DIALOG_TITLE,
-        ABOUT_DIALOG_MESSAGE,
-        gtk::MessageType::Info,
-        gtk::ButtonsType::Ok,
-    );
-    let link = gtk::LinkButton::with_label(ABOUT_DIALOG_URL, ABOUT_DIALOG_URL);
-    link.set_halign(gtk::Align::Start);
-    if let Ok(message_area) = dialog.message_area().downcast::<gtk::Box>() {
-        message_area.append(&link);
-    } else {
-        dialog.content_area().append(&link);
+    let mut builder = gtk::Dialog::builder()
+        .title(ABOUT_DIALOG_TITLE)
+        .modal(true)
+        .resizable(false);
+    if let Some(parent) = parent {
+        builder = builder.transient_for(parent);
     }
+    let dialog = builder.build();
+    dialog.set_default_size(ABOUT_DIALOG_WIDTH, ABOUT_DIALOG_HEIGHT);
+    let content = dialog.content_area();
+    content.set_spacing(10);
+    content.set_margin_start(12);
+    content.set_margin_end(12);
+    content.set_margin_top(12);
+    content.set_margin_bottom(12);
+
+    let version_label = gtk::Label::new(Some(ABOUT_DIALOG_VERSION_LABEL));
+    version_label.set_xalign(0.0);
+    content.append(&version_label);
+
+    let body = gtk::TextView::new();
+    body.set_editable(false);
+    body.set_cursor_visible(false);
+    body.set_monospace(true);
+    body.set_wrap_mode(gtk::WrapMode::None);
+    body.set_left_margin(8);
+    body.set_right_margin(8);
+    body.set_top_margin(8);
+    body.set_bottom_margin(8);
+    let body_text = about_text();
+    body.buffer().set_text(body_text.as_ref());
+
+    let body_scrolled = gtk::ScrolledWindow::new();
+    body_scrolled.set_min_content_width(ABOUT_BODY_SCROLL_WIDTH);
+    body_scrolled.set_max_content_width(ABOUT_BODY_SCROLL_WIDTH);
+    body_scrolled.set_min_content_height(ABOUT_BODY_SCROLL_HEIGHT);
+    body_scrolled.set_max_content_height(ABOUT_BODY_SCROLL_HEIGHT);
+    body_scrolled.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Automatic);
+    body_scrolled.set_child(Some(&body));
+    content.append(&body_scrolled);
+
+    let footer = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    let url_button = gtk::Button::with_label(ABOUT_DIALOG_URL);
+    url_button.set_halign(gtk::Align::Start);
+    {
+        let dialog = dialog.clone();
+        url_button.connect_clicked(move |_| {
+            if let Err(error) = gio::AppInfo::launch_default_for_uri(
+                ABOUT_DIALOG_URL,
+                None::<&gio::AppLaunchContext>,
+            ) {
+                let message =
+                    format!("Could not open project URL.\n\n{ABOUT_DIALOG_URL}\n\n{error}");
+                show_message_dialog_for_window(
+                    Some(dialog.upcast_ref::<gtk::Window>()),
+                    ABOUT_DIALOG_TITLE,
+                    &message,
+                    gtk::MessageType::Warning,
+                );
+            }
+        });
+    }
+    footer.append(&url_button);
+    let footer_spacer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    footer_spacer.set_hexpand(true);
+    footer.append(&footer_spacer);
+    let ok_button = gtk::Button::with_label("OK");
+    ok_button.set_receives_default(true);
+    {
+        let dialog = dialog.clone();
+        ok_button.connect_clicked(move |_| {
+            dialog.response(gtk::ResponseType::Ok);
+        });
+    }
+    footer.append(&ok_button);
+    content.append(&footer);
+    dialog.set_default_widget(Some(&ok_button));
+
     let _ = run_modal_future(dialog.run_future());
     dialog.close();
 }
@@ -6686,12 +6755,19 @@ mod tests {
     fn message_dialog_titles_match_windows_text() {
         assert_eq!(ERROR_DIALOG_TITLE, "j3Text Error");
         assert_eq!(FILE_CHANGED_DIALOG_TITLE, "File Changed");
-        assert_eq!(ABOUT_DIALOG_TITLE, "About");
+        assert_eq!(ABOUT_DIALOG_TITLE, "About j3Text");
         assert_eq!(
-            ABOUT_DIALOG_MESSAGE,
+            ABOUT_DIALOG_VERSION_LABEL,
             concat!("j3Text ", env!("CARGO_PKG_VERSION"))
         );
         assert_eq!(ABOUT_DIALOG_URL, "https://github.com/edgarp9");
+        assert_eq!(ABOUT_DIALOG_WIDTH, 450);
+        assert_eq!(ABOUT_DIALOG_HEIGHT, 400);
+        assert_eq!(ABOUT_BODY_SCROLL_WIDTH, 390);
+        assert_eq!(ABOUT_BODY_SCROLL_HEIGHT, 260);
+        let body_text = about_text();
+        assert_eq!(body_text.as_ref(), crate::notices::about_text().as_ref());
+        assert!(!body_text.contains("## Resolved Rust Crates"));
         assert_eq!(FIND_DIALOG_TITLE, "Find");
         assert_eq!(RESULTS_DIALOG_TITLE, "Results");
         assert_eq!(NO_MATCH_DIALOG_MESSAGE, "No match.");

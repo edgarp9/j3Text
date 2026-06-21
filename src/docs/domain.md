@@ -29,6 +29,30 @@
 
 ## 배포 및 Windows 호환성 기준
 
+- 프로젝트 라이선스는 `Cargo.toml`에 `GPL-3.0-or-later`로 선언하고, 전체 GPL-3.0
+  본문은 `LICENSE`에 둔다. Rust crate 의존성, build/proc-macro 의존성,
+  Rust standard library notice, Material Icons 기반 앱 아이콘, OS/native runtime
+  확인 항목은 `THIRD_PARTY_NOTICES.txt`와 `third_party_licenses/`에 둔다. 각
+  외부 항목은 이름, 버전, 라이선스, 저작권/attribution 문구, 원본 URL, 라이선스
+  파일 위치, 배포 포함 여부를 기록한다. `THIRD_PARTY_NOTICES.txt` 하단에는
+  `LICENSE`, `COPYING`, `UNLICENSE`, `third_party_licenses/`에서 확인한 라이선스
+  전문을 중복 제거해 함께 싣는다. release 빌드 경로를 여는
+  `build_release.py`는 `LICENSE`, `THIRD_PARTY_NOTICES.txt`, `about.txt`,
+  `third_party_licenses/`를 release 디렉터리에 복사하고
+  `j3text-<version>-corresponding-source.zip`과 target별 binary zip을 생성해
+  GPL-3.0-or-later 바이너리 배포에 필요한 고지와 Corresponding Source 제공
+  경로가 누락되지 않게 한다. 배포 산출물에서 GPL 본문과
+  MIT/Apache/BSD/Unicode/Apache-2.0 asset 계열 고지가 누락되지 않게 한다.
+  Linux에서 GTK 계열 native library를 함께 번들링하는 배포 방식은 Rust crate
+  고지와 별도로 해당 native library 및 그 transitive shared library 라이선스
+  확인이 필요하다.
+- About dialog의 창 제목은 `About j3Text`이고, 상단 버전 라벨은
+  `j3Text <package version>`으로 표시한다. 버전 값은 Cargo package version에서
+  자동으로 가져온다. 본문은 고정 크기의 읽기 전용 스크롤 영역으로 제공하며,
+  실행 파일 옆의 `about.txt`를 우선 읽고 없으면 빌드에 포함된 같은 내용을 보여
+  준다. 하단 왼쪽의 프로젝트 URL 버튼은 기본 브라우저로 URL을 열고, 하단
+  오른쪽의 `OK` 버튼은 dialog를 닫는다. About dialog의 기준 크기는 450 x 400으로
+  유지한다. 긴 라이선스 문구가 있어도 About dialog 전체 폭과 높이를 키우지 않는다.
 - 현재 배포 최소 기준은 Windows 10 version 1709 이상이다. 저장 경계가
   `SetFileInformationByHandle`의 `FileRenameInfoEx`/POSIX rename 의미에 기대어
   열려 있는 target 파일도 보수적으로 교체하려고 하기 때문이다. 더 낮은 Windows
@@ -1021,9 +1045,12 @@ editing on both platform backends.
 - Platform modal dialogs, including message boxes and file dialogs, are owned by
   each backend and transient to the main editor window when the toolkit supports
   that boundary.
-- The About dialog shows `j3Text <package version>` and places the GitHub profile
-  link `https://github.com/edgarp9` directly below the version. It does not show
-  the previous subtitle.
+- The About dialog title is `About j3Text`, and its top version label is
+  `j3Text <package version>`, with the version value sourced from Cargo package
+  metadata. It exposes `about.txt` in a fixed-size read-only scrollable body,
+  keeps the project URL as a bottom-left button, and closes through a bottom-right
+  `OK` button. Its target size is 450 x 400, and long notices do not resize the
+  About dialog.
 
 ## Use Case Boundaries
 
